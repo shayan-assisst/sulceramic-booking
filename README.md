@@ -194,8 +194,17 @@ NEXT_PUBLIC_DEMO_MODE=true npm run build
 # → output in ./out
 ```
 
-The included GitHub Action `.github/workflows/demo.yml` builds and deploys this static export
-to the `gh-pages` branch on every push to `main`.
+A ready-to-use workflow lives at `docs/demo-workflow.yml`. To enable auto-deploy on every push to
+`main`, copy it into `.github/workflows/`:
+
+```bash
+mkdir -p .github/workflows
+cp docs/demo-workflow.yml .github/workflows/demo.yml
+git add .github/workflows/demo.yml && git commit -m "ci: add gh-pages workflow" && git push
+```
+
+(The initial demo deploy was published manually to the `gh-pages` branch — the workflow keeps
+it in sync afterwards.)
 
 ---
 
