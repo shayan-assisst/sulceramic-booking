@@ -109,16 +109,35 @@ export const demoBookings = [
   },
 ];
 
-// Pretend Maria has 4 confirmed Book Sessions, due 200 EUR.
+// Pretend Maria has 4 confirmed Book Sessions and just hit her 4th residency
+// session for the month — both reminders waiting on her dashboard.
 export const demoPaymentReminders = [
   {
     id: "demo-pr-1",
     userId: "demo-user",
+    bookingType: "BOOK_SESSIONS" as const,
     sessionFrom: 1,
     sessionTo: 4,
     amount: 20000, // 200 EUR
     paid: false,
     sentAt: daysFromNow(-1),
+    paidAt: null as string | null,
+  },
+  {
+    id: "demo-pr-2",
+    userId: "demo-user",
+    bookingType: "RESIDENCY" as const,
+    // For residency: sessionFrom = year*100 + (month+1) of the upcoming
+    // billed month; sessionTo = number of sessions in that month.
+    sessionFrom: (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      return d.getFullYear() * 100 + (d.getMonth() + 1);
+    })(),
+    sessionTo: 8,
+    amount: 8 * 4000, // 8 sessions × €40 = €320
+    paid: false,
+    sentAt: daysFromNow(0, 9, 0),
     paidAt: null as string | null,
   },
 ];

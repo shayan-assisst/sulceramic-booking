@@ -92,7 +92,12 @@ export default async function BookingDetail({ params }: { params: { id: string }
               <div className="text-sm text-clay-mid">
                 Payment is collected after every 4 confirmed sessions.
               </div>
-            ) : null}
+            ) : (
+              <div className="text-sm text-clay-mid">
+                No payment today. You'll receive a payment reminder for next month after
+                your 4th session.
+              </div>
+            )}
             {booking.notes && (
               <div>
                 <div className="text-xs uppercase tracking-wider text-clay-mid mb-1">

@@ -39,6 +39,7 @@ async function loadReminders(userId: string): Promise<PendingReminder[]> {
       .filter((r) => !r.paid)
       .map((r) => ({
         id: r.id,
+        bookingType: r.bookingType,
         sessionFrom: r.sessionFrom,
         sessionTo: r.sessionTo,
         amount: r.amount,
@@ -51,6 +52,7 @@ async function loadReminders(userId: string): Promise<PendingReminder[]> {
     });
     return rows.map((r) => ({
       id: r.id,
+      bookingType: (r.bookingType as "BOOK_SESSIONS" | "RESIDENCY") ?? "BOOK_SESSIONS",
       sessionFrom: r.sessionFrom,
       sessionTo: r.sessionTo,
       amount: r.amount,

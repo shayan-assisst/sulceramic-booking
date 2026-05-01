@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { stripe } from "@/lib/stripe";
 import { generateResidencySessionsFromPattern } from "@/lib/availability";
 import { sendBookingConfirmed } from "@/lib/email";
 
@@ -93,7 +92,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No sessions could be generated" }, { status: 400 });
     }
     const sessionsPerMonth = generated.length;
-    const amount = sessionsPerMonth * env.priceResidencySession;
     const firstStart = new Date(generated[0].startTime);
     const firstEnd = new Date(generated[0].endTime);
 
@@ -101,11 +99,10 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         type: "RESIDENCY",
-        status: "PENDING",
+        status: "CONFIRMED",
         startTime: firstStart,
         endTime: firstEnd,
         notes: body.notes || null,
-        amountPaid: amount,
         sessionCount: sessionsPerMonth,
         residency: {
           create: {
@@ -126,44 +123,24 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!stripe) {
-      // Local dev without Stripe: auto-confirm.
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { status: "CONFIRMED" },
-      });
-      return NextResponse.json({
-        url: `${env.appUrl}/dashboard/booking/${booking.id}?demo=1`,
-      });
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        await sendBookingConfirmed({
+          userEmail: user.email,
+          userName: user.name,
+          type: "RESIDENCY",
+          startTime: firstStart,
+          endTime: firstEnd,
+        });
+      }
+    } catch (e) {
+      console.error("[checkout] residency confirm email failed", e);
     }
 
-    const checkout = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: `Sul Ceramic — Residency (first month, ${sessionsPerMonth} sessions)`,
-            },
-            unit_amount: amount,
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${env.appUrl}/dashboard/booking/${booking.id}?success=1`,
-      cancel_url: `${env.appUrl}/book?cancelled=1`,
-      metadata: { bookingId: booking.id, kind: "RESIDENCY" },
-      customer_email: session!.user!.email!,
+    return NextResponse.json({
+      url: `${env.appUrl}/dashboard/booking/${booking.id}?confirmed=1`,
     });
-
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { stripePaymentId: checkout.id },
-    });
-
-    return NextResponse.json({ url: checkout.url });
   }
 
   return NextResponse.json({ error: "Invalid type" }, { status: 400 });

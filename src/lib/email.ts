@@ -134,6 +134,62 @@ export async function sendRescheduled(opts: {
   await send(env.ownerEmail, `Rescheduled: ${opts.userName || opts.userEmail}`, html);
 }
 
+export async function sendResidencyPaymentReminder(opts: {
+  userEmail: string;
+  userName?: string | null;
+  monthLabel: string; // e.g. "June 2026"
+  sessions: { startTime: Date; endTime: Date }[];
+  sessionCount: number;
+  amount: number; // cents
+  payUrl: string;
+}) {
+  const amountEur = (opts.amount / 100).toLocaleString("en-GB", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+  });
+  const list = opts.sessions
+    .map(
+      (s) =>
+        `<li style="padding:6px 0;border-bottom:1px solid #EAE0CF;">
+           <span style="color:${CLAY};">${formatLine(s.startTime)}</span>
+         </li>`
+    )
+    .join("");
+  const html = shell(
+    "Your residency continues next month",
+    `<p>Hi ${opts.userName || "there"},</p>
+     <p>You've completed your 4th residency session this month — beautiful work.
+        Here's what's coming up for <strong>${opts.monthLabel}</strong>:</p>
+     <ul style="list-style:none;padding:0;margin:12px 0;">
+       ${list || `<li style="color:${CLAY};">${opts.sessionCount} sessions</li>`}
+     </ul>
+     <p style="background:${CREAM};padding:12px 16px;border-radius:8px;border-left:4px solid ${TERRACOTTA};">
+       <strong>${opts.sessionCount} sessions · ${amountEur}</strong>
+     </p>
+     <p>Pay securely via Stripe to lock in next month:</p>
+     <p>
+       <a href="${opts.payUrl}"
+          style="display:inline-block;background:${TERRACOTTA};color:#fff;text-decoration:none;
+                 padding:12px 20px;border-radius:8px;font-weight:600;">
+         Pay for next month
+       </a>
+     </p>
+     <p>You can also pay any time from your dashboard.</p>
+     <p>— Miguel</p>`
+  );
+  await send(
+    opts.userEmail,
+    "Your Sul Ceramic residency continues next month - payment due",
+    html
+  );
+  await send(
+    env.ownerEmail,
+    `Residency payment reminder sent: ${opts.userName || opts.userEmail} (${amountEur})`,
+    html
+  );
+}
+
 export async function sendPaymentReminder(opts: {
   userEmail: string;
   userName?: string | null;

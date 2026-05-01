@@ -113,6 +113,10 @@ model ResidencyBooking {
 model PaymentReminder {
   id              String    @id @default(cuid())
   userId          String
+  bookingType     String    @default("BOOK_SESSIONS") // BOOK_SESSIONS | RESIDENCY
+  // For BOOK_SESSIONS: cumulative session block range (1-4, 5-8, ...).
+  // For RESIDENCY: sessionFrom = year*100+month of the upcoming month being billed,
+  //                sessionTo   = number of sessions in that month.
   sessionFrom     Int
   sessionTo       Int
   amount          Int

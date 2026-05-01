@@ -173,7 +173,7 @@ export function BookingFlow({ pricing, availability, isDemo, isAuthenticated }: 
           />
           <TypeCard
             title="Residency"
-            desc="Commit to a regular practice. Choose your days, session count, and pay monthly."
+            desc="Commit to a regular practice. Choose your days and session count. No payment today — you'll be reminded for the next month after your 4th session."
             price={`${formatPrice(pricing.residencySession)} / session`}
             onClick={() => selectType("RESIDENCY")}
           />
@@ -218,13 +218,11 @@ export function BookingFlow({ pricing, availability, isDemo, isAuthenticated }: 
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {type === "BOOK_SESSIONS" ? "Confirm sessions" : "Confirm & pay"}
-            </CardTitle>
+            <CardTitle>Confirm sessions</CardTitle>
             <CardDescription>
               {type === "BOOK_SESSIONS"
                 ? "Review your sessions. No payment now — you'll be reminded after every 4 sessions."
-                : "Review your residency. You'll be redirected to a secure Stripe checkout for the first month."}
+                : "Confirmed — no payment today. You will receive a payment reminder after your 4th session each month."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -255,11 +253,7 @@ export function BookingFlow({ pricing, availability, isDemo, isAuthenticated }: 
                 ← Back
               </Button>
               <Button onClick={handleConfirm} disabled={submitting} size="lg">
-                {submitting
-                  ? "Working..."
-                  : type === "BOOK_SESSIONS"
-                  ? "Confirm sessions"
-                  : "Pay & confirm"}
+                {submitting ? "Working..." : "Confirm sessions"}
               </Button>
             </div>
           </CardContent>
@@ -655,8 +649,8 @@ function ResidencyPicker({
       <CardHeader>
         <CardTitle>Build your residency</CardTitle>
         <CardDescription>
-          Pick the days you want to come, how many sessions per week, and your start date. The
-          first month is generated and paid upfront.
+          Pick the days you want to come, how many sessions per week, and your start date.
+          We'll generate the first month — no payment today.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -733,9 +727,17 @@ function ResidencyPicker({
             </ul>
           )}
           <div className="flex justify-between pt-2 border-t border-terracotta-200">
-            <span className="text-clay-mid text-sm">First month total</span>
-            <span className="font-serif text-xl text-clay-dark">{formatPrice(total)}</span>
+            <span className="text-clay-mid text-sm">
+              {preview.length} × {formatPrice(pricePerSession)}
+            </span>
+            <span className="font-serif text-xl text-clay-dark">
+              {formatPrice(total)}
+              <span className="text-xs text-clay-mid font-sans"> / month, billed later</span>
+            </span>
           </div>
+          <p className="text-xs text-clay-mid">
+            No payment today — you'll get a reminder for next month after your 4th session.
+          </p>
         </div>
         <div className="flex justify-end">
           <Button onClick={onContinue} disabled={preview.length === 0}>
@@ -820,17 +822,30 @@ function Summary({
         <span className="text-clay-mid text-sm">Per week</span>
         <span className="text-clay-dark">{residencyMeta.sessionsPerWeek}</span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-clay-mid text-sm">First month</span>
-        <span className="text-clay-dark">{residencyPreview.length} sessions</span>
-      </div>
+      <ul className="text-sm divide-y divide-terracotta-100">
+        {residencyPreview.map((s) => (
+          <li key={s.start.toISOString()} className="flex justify-between py-1.5">
+            <span className="text-clay-dark">{formatDate(s.start)}</span>
+            <span className="text-clay-mid">
+              {formatTime(s.start)} – {formatTime(s.end)}
+            </span>
+          </li>
+        ))}
+      </ul>
       <div className="flex justify-between pt-2 border-t border-terracotta-200">
         <span className="text-clay-mid text-sm">Due now</span>
-        <span className="font-serif text-xl text-clay-dark">
-          {formatPrice(total)}
-          <span className="text-xs text-clay-mid font-sans"> / first month</span>
-        </span>
+        <span className="font-serif text-xl text-clay-dark">€0</span>
       </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-clay-mid">
+          Next month: {residencyPreview.length} × {formatPrice(pricing.residencySession)}
+        </span>
+        <span className="text-clay-dark">{formatPrice(total)}</span>
+      </div>
+      <p className="text-xs text-clay-mid">
+        Confirmed — no payment today. You will receive a payment reminder after your 4th
+        session each month for the upcoming month.
+      </p>
     </div>
   );
 }
