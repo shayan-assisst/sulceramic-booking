@@ -53,46 +53,50 @@ function formatLine(d: Date) {
   }).format(d);
 }
 
+function typeLabel(t: "BOOK_SESSIONS" | "RESIDENCY") {
+  return t === "BOOK_SESSIONS" ? "Book Sessions" : "Residency";
+}
+
 export async function sendBookingConfirmed(opts: {
   userEmail: string;
   userName?: string | null;
-  type: "FIRST_SESSION" | "RESIDENCY";
+  type: "BOOK_SESSIONS" | "RESIDENCY";
   startTime: Date;
   endTime: Date;
 }) {
-  const typeLabel = opts.type === "FIRST_SESSION" ? "First Session" : "Residency";
+  const label = typeLabel(opts.type);
   const html = shell(
     "Your booking is confirmed",
     `<p>Hi ${opts.userName || "there"},</p>
-     <p>Your <strong>${typeLabel}</strong> at Sul Ceramic is confirmed.</p>
+     <p>Your <strong>${label}</strong> at Sul Ceramic is confirmed.</p>
      <p style="background:${CREAM};padding:12px 16px;border-radius:8px;border-left:4px solid ${TERRACOTTA};">
        <strong>${formatLine(opts.startTime)}</strong>
      </p>
      <p>You'll receive a reminder 24 hours before. We've also added the session to your Google Calendar.</p>
      <p>Looking forward to seeing you,<br/>Miguel</p>`
   );
-  await send(opts.userEmail, `Sul Ceramic — ${typeLabel} confirmed`, html);
+  await send(opts.userEmail, `Sul Ceramic — ${label} confirmed`, html);
   await send(env.ownerEmail, `New booking: ${opts.userName || opts.userEmail}`, html);
 }
 
 export async function sendReminder(opts: {
   userEmail: string;
   userName?: string | null;
-  type: "FIRST_SESSION" | "RESIDENCY";
+  type: "BOOK_SESSIONS" | "RESIDENCY";
   startTime: Date;
 }) {
-  const typeLabel = opts.type === "FIRST_SESSION" ? "First Session" : "Residency";
+  const label = typeLabel(opts.type);
   const html = shell(
     "See you tomorrow",
     `<p>Hi ${opts.userName || "there"},</p>
-     <p>Just a friendly reminder that your <strong>${typeLabel}</strong> is tomorrow:</p>
+     <p>Just a friendly reminder that your <strong>${label}</strong> is tomorrow:</p>
      <p style="background:${CREAM};padding:12px 16px;border-radius:8px;border-left:4px solid ${TERRACOTTA};">
        <strong>${formatLine(opts.startTime)}</strong>
      </p>
      <p>Wear something you don't mind getting a little muddy.</p>
      <p>— Miguel</p>`
   );
-  await send(opts.userEmail, `Reminder — ${typeLabel} tomorrow`, html);
+  await send(opts.userEmail, `Reminder — ${label} tomorrow`, html);
   await send(env.ownerEmail, `Reminder: ${opts.userName || opts.userEmail} tomorrow`, html);
 }
 
@@ -128,4 +132,43 @@ export async function sendRescheduled(opts: {
   );
   await send(opts.userEmail, `Sul Ceramic — session rescheduled`, html);
   await send(env.ownerEmail, `Rescheduled: ${opts.userName || opts.userEmail}`, html);
+}
+
+export async function sendPaymentReminder(opts: {
+  userEmail: string;
+  userName?: string | null;
+  sessionCount: number; // total confirmed sessions, e.g. 4 / 8 / 12
+  amount: number; // cents
+  payUrl: string;
+}) {
+  const amountEur = (opts.amount / 100).toLocaleString("en-GB", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+  });
+  const html = shell(
+    "Time to settle up",
+    `<p>Hi ${opts.userName || "there"},</p>
+     <p>You've reached <strong>${opts.sessionCount} confirmed sessions</strong> at Sul Ceramic — that's
+        a block of 4 sessions to settle up.</p>
+     <p style="background:${CREAM};padding:12px 16px;border-radius:8px;border-left:4px solid ${TERRACOTTA};">
+       <strong>Amount due: ${amountEur}</strong>
+     </p>
+     <p>Pay securely via Stripe:</p>
+     <p>
+       <a href="${opts.payUrl}"
+          style="display:inline-block;background:${TERRACOTTA};color:#fff;text-decoration:none;
+                 padding:12px 20px;border-radius:8px;font-weight:600;">
+         Pay now
+       </a>
+     </p>
+     <p>You can also pay any time from your dashboard.</p>
+     <p>— Miguel</p>`
+  );
+  await send(opts.userEmail, `Sul Ceramic — payment due (${amountEur})`, html);
+  await send(
+    env.ownerEmail,
+    `Payment reminder sent: ${opts.userName || opts.userEmail} (${amountEur})`,
+    html
+  );
 }

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { env } from "@/lib/env";
 import { formatPrice } from "@/lib/utils";
 
+const FOUR_SESSION_BLOCK = env.pricePerSession * 4;
+
 export default function Home() {
   return (
     <PageShell>
@@ -64,25 +66,30 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>First Session</CardTitle>
+              <CardTitle>Book Sessions</CardTitle>
               <CardDescription>
-                A 2-hour one-on-one introduction to the wheel. No experience needed.
+                Pick one or more sessions or set a weekly recurring schedule. Pay after every
+                4 sessions.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="text-sm text-clay-mid space-y-1.5">
-                <li>· Two hours, single session</li>
-                <li>· Aprons and tools provided</li>
-                <li>· Take home one piece, fired & glazed</li>
+                <li>· Two hours per session, no commitment</li>
+                <li>· Pick specific dates or set "every Monday at 18:00"</li>
+                <li>· Settle up after every 4 confirmed sessions</li>
               </ul>
               <div className="flex items-center justify-between pt-4 border-t border-terracotta-100">
                 <span className="font-serif text-2xl text-clay-dark">
-                  {formatPrice(env.priceFirstSession)}
+                  {formatPrice(env.pricePerSession)}
+                  <span className="text-sm text-clay-mid font-sans"> / session</span>
                 </span>
                 <Button asChild>
-                  <Link href="/book?type=first">Book first session</Link>
+                  <Link href="/book?type=sessions">Book sessions</Link>
                 </Button>
               </div>
+              <p className="text-xs text-clay-mid">
+                Payment reminder: {formatPrice(FOUR_SESSION_BLOCK)} every 4 sessions.
+              </p>
             </CardContent>
           </Card>
 
@@ -90,24 +97,27 @@ export default function Home() {
             <CardHeader>
               <CardTitle>Residency</CardTitle>
               <CardDescription>
-                Four sessions a month at the same weekly time. Three-month minimum commitment.
+                Commit to a regular practice. Choose your days, session count, and pay monthly.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="text-sm text-clay-mid space-y-1.5">
-                <li>· 4 × 2-hour sessions, billed monthly</li>
-                <li>· Same weekly day & time, your spot</li>
+                <li>· Pick 1+ days per week, 1 or 2 sessions per week</li>
+                <li>· Same weekly rhythm, your spot</li>
                 <li>· Reschedule individual sessions up to 24h before</li>
               </ul>
               <div className="flex items-center justify-between pt-4 border-t border-terracotta-100">
                 <span className="font-serif text-2xl text-clay-dark">
-                  {formatPrice(env.priceResidencyMonth)}
-                  <span className="text-sm text-clay-mid font-sans"> / month</span>
+                  {formatPrice(env.priceResidencySession)}
+                  <span className="text-sm text-clay-mid font-sans"> / session</span>
                 </span>
                 <Button asChild>
                   <Link href="/book?type=residency">Join residency</Link>
                 </Button>
               </div>
+              <p className="text-xs text-clay-mid">
+                Billed upfront monthly, based on your chosen sessions per week.
+              </p>
             </CardContent>
           </Card>
         </div>

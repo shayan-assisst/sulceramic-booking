@@ -6,8 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { demoBookings } from "@/lib/demo-data";
+import { demoBookings, demoPaymentReminders } from "@/lib/demo-data";
 import { formatDate, formatTime } from "@/lib/utils";
+import {
+  PaymentReminderBanner,
+  type PendingReminder,
+} from "@/components/payment-reminder-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +33,39 @@ async function loadUpcoming(userId: string) {
   }
 }
 
+async function loadReminders(userId: string): Promise<PendingReminder[]> {
+  if (env.isDemo) {
+    return demoPaymentReminders
+      .filter((r) => !r.paid)
+      .map((r) => ({
+        id: r.id,
+        sessionFrom: r.sessionFrom,
+        sessionTo: r.sessionTo,
+        amount: r.amount,
+      }));
+  }
+  try {
+    const rows = await prisma.paymentReminder.findMany({
+      where: { userId, paid: false },
+      orderBy: { sentAt: "desc" },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      sessionFrom: r.sessionFrom,
+      sessionTo: r.sessionTo,
+      amount: r.amount,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const upcoming = await loadUpcoming(user.id);
+  const [upcoming, reminders] = await Promise.all([
+    loadUpcoming(user.id),
+    loadReminders(user.id),
+  ]);
   return (
     <PageShell>
       <div className="container py-12 space-y-8">
@@ -41,6 +75,8 @@ export default async function DashboardPage() {
             Hi {user.name?.split(" ")[0] || "there"}.
           </h1>
         </div>
+
+        <PaymentReminderBanner reminders={reminders} isDemo={env.isDemo} />
 
         <div className="grid md:grid-cols-3 gap-4">
           <Card>
@@ -108,7 +144,7 @@ export default async function DashboardPage() {
               >
                 <div>
                   <div className="font-medium text-clay-dark">
-                    {b.type === "FIRST_SESSION" ? "First Session" : "Residency"}
+                    {b.type === "BOOK_SESSIONS" ? "Book Sessions" : "Residency"}
                   </div>
                   <div className="text-sm text-clay-mid">
                     {formatDate(b.startTime)} · {formatTime(b.startTime)}–{formatTime(b.endTime)}

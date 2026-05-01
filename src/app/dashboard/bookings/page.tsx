@@ -43,7 +43,7 @@ export default async function BookingsPage() {
               <p className="text-sm text-clay-mid">
                 No bookings yet —{" "}
                 <Link href="/book" className="underline text-terracotta-600">
-                  book your first session
+                  book your first sessions
                 </Link>
                 .
               </p>
@@ -57,7 +57,7 @@ export default async function BookingsPage() {
                     >
                       <div>
                         <div className="font-medium text-clay-dark">
-                          {b.type === "FIRST_SESSION" ? "First Session" : "Residency"}
+                          {b.type === "BOOK_SESSIONS" ? "Book Sessions" : "Residency"}
                         </div>
                         <div className="text-sm text-clay-mid">
                           {formatDate(b.startTime)} · {formatTime(b.startTime)}–

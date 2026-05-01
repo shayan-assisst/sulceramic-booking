@@ -3,7 +3,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { stripe } from "@/lib/stripe";
-import { generateResidencySessions } from "@/lib/availability";
+import { generateResidencySessionsFromPattern } from "@/lib/availability";
+import { sendBookingConfirmed } from "@/lib/email";
+
+export const dynamic = "force-dynamic";
+
+type SessionInput = { startTime: string; endTime: string };
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -13,113 +18,153 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const type: "FIRST_SESSION" | "RESIDENCY" = body.type;
+  const type: "BOOK_SESSIONS" | "RESIDENCY" = body.type;
 
-  let startTime: Date;
-  let endTime: Date;
-  let residencyData: { weeklyDayOfWeek: number; weeklyTime: string; sessions: any[] } | null = null;
-
-  if (type === "FIRST_SESSION") {
-    if (!body.startTime || !body.endTime) {
-      return NextResponse.json({ error: "Missing time" }, { status: 400 });
-    }
-    startTime = new Date(body.startTime);
-    endTime = new Date(body.endTime);
-  } else if (type === "RESIDENCY") {
-    if (body.residencyDay === null || !body.residencyTime) {
-      return NextResponse.json({ error: "Missing weekly slot" }, { status: 400 });
-    }
-    const now = new Date();
-    const sessions = generateResidencySessions(
-      Number(body.residencyDay),
-      String(body.residencyTime),
-      now.getMonth() + 1,
-      now.getFullYear()
-    );
+  if (type === "BOOK_SESSIONS") {
+    const sessions: SessionInput[] = Array.isArray(body.sessions) ? body.sessions : [];
     if (sessions.length === 0) {
-      return NextResponse.json({ error: "No sessions in this month" }, { status: 400 });
+      return NextResponse.json({ error: "Pick at least one session" }, { status: 400 });
     }
-    startTime = new Date(sessions[0].startTime);
-    endTime = new Date(sessions[0].endTime);
-    residencyData = {
-      weeklyDayOfWeek: Number(body.residencyDay),
-      weeklyTime: String(body.residencyTime),
-      sessions: sessions.map((s) => ({
-        date: s.date,
-        startTime: s.startTime,
-        endTime: s.endTime,
-        cancelled: false,
-        rescheduled: null,
-      })),
-    };
-  } else {
-    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    const recurringPattern = body.recurringPattern
+      ? JSON.stringify(body.recurringPattern)
+      : null;
+
+    // Create one Booking row per session, all confirmed (deferred payment).
+    const created = [];
+    for (const s of sessions) {
+      const startTime = new Date(s.startTime);
+      const endTime = new Date(s.endTime);
+      const b = await prisma.booking.create({
+        data: {
+          userId,
+          type: "BOOK_SESSIONS",
+          status: "CONFIRMED",
+          startTime,
+          endTime,
+          notes: body.notes || null,
+          recurringPattern,
+          sessionCount: 1,
+        },
+      });
+      created.push(b);
+    }
+
+    // Bump the user's confirmed-session counter.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { confirmedSessionCount: { increment: sessions.length } },
+    });
+
+    // Fire confirmation email (best-effort).
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        for (const b of created) {
+          await sendBookingConfirmed({
+            userEmail: user.email,
+            userName: user.name,
+            type: "BOOK_SESSIONS",
+            startTime: b.startTime,
+            endTime: b.endTime,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[checkout] email confirm failed", e);
+    }
+
+    // Redirect target: dashboard list.
+    return NextResponse.json({ url: `${env.appUrl}/dashboard/bookings?confirmed=1` });
   }
 
-  const amount = type === "FIRST_SESSION" ? env.priceFirstSession : env.priceResidencyMonth;
+  if (type === "RESIDENCY") {
+    const r = body.residency;
+    if (!r || !Array.isArray(r.daysOfWeek) || r.daysOfWeek.length === 0) {
+      return NextResponse.json({ error: "Missing residency config" }, { status: 400 });
+    }
+    const startDate = new Date(r.startDate);
+    const generated = generateResidencySessionsFromPattern({
+      daysOfWeek: r.daysOfWeek.map((n: any) => Number(n)),
+      time: String(r.time || "18:00"),
+      sessionsPerWeek: Number(r.sessionsPerWeek) === 2 ? 2 : 1,
+      startDate,
+    });
+    if (generated.length === 0) {
+      return NextResponse.json({ error: "No sessions could be generated" }, { status: 400 });
+    }
+    const sessionsPerMonth = generated.length;
+    const amount = sessionsPerMonth * env.priceResidencySession;
+    const firstStart = new Date(generated[0].startTime);
+    const firstEnd = new Date(generated[0].endTime);
 
-  const booking = await prisma.booking.create({
-    data: {
-      userId,
-      type,
-      status: "PENDING",
-      startTime,
-      endTime,
-      notes: body.notes || null,
-      amountPaid: amount,
-      ...(residencyData
-        ? {
-            residency: {
-              create: {
-                weeklyDayOfWeek: residencyData.weeklyDayOfWeek,
-                weeklyTime: residencyData.weeklyTime,
-                month: startTime.getMonth() + 1,
-                year: startTime.getFullYear(),
-                sessions: JSON.stringify(residencyData.sessions),
-              },
+    const booking = await prisma.booking.create({
+      data: {
+        userId,
+        type: "RESIDENCY",
+        status: "PENDING",
+        startTime: firstStart,
+        endTime: firstEnd,
+        notes: body.notes || null,
+        amountPaid: amount,
+        sessionCount: sessionsPerMonth,
+        residency: {
+          create: {
+            daysOfWeek: JSON.stringify(r.daysOfWeek),
+            sessionsPerMonth,
+            startDate,
+            sessions: JSON.stringify(
+              generated.map((s) => ({
+                date: s.date,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                cancelled: false,
+                rescheduled: null,
+              }))
+            ),
+          },
+        },
+      },
+    });
+
+    if (!stripe) {
+      // Local dev without Stripe: auto-confirm.
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "CONFIRMED" },
+      });
+      return NextResponse.json({
+        url: `${env.appUrl}/dashboard/booking/${booking.id}?demo=1`,
+      });
+    }
+
+    const checkout = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `Sul Ceramic — Residency (first month, ${sessionsPerMonth} sessions)`,
             },
-          }
-        : {}),
-    },
-  });
+            unit_amount: amount,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${env.appUrl}/dashboard/booking/${booking.id}?success=1`,
+      cancel_url: `${env.appUrl}/book?cancelled=1`,
+      metadata: { bookingId: booking.id, kind: "RESIDENCY" },
+      customer_email: session!.user!.email!,
+    });
 
-  if (!stripe) {
-    // Fallback for local dev without Stripe: auto-confirm
     await prisma.booking.update({
       where: { id: booking.id },
-      data: { status: "CONFIRMED" },
+      data: { stripePaymentId: checkout.id },
     });
-    return NextResponse.json({ url: `${env.appUrl}/dashboard/booking/${booking.id}?demo=1` });
+
+    return NextResponse.json({ url: checkout.url });
   }
 
-  const checkout = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    line_items: [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name:
-              type === "FIRST_SESSION"
-                ? "Sul Ceramic — First Session"
-                : "Sul Ceramic — Residency (1 month)",
-          },
-          unit_amount: amount,
-        },
-        quantity: 1,
-      },
-    ],
-    success_url: `${env.appUrl}/dashboard/booking/${booking.id}?success=1`,
-    cancel_url: `${env.appUrl}/book?cancelled=1`,
-    metadata: { bookingId: booking.id },
-    customer_email: session.user!.email!,
-  });
-
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { stripePaymentId: checkout.id },
-  });
-
-  return NextResponse.json({ url: checkout.url });
+  return NextResponse.json({ error: "Invalid type" }, { status: 400 });
 }

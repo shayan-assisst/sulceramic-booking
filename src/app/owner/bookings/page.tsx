@@ -64,7 +64,7 @@ export default async function OwnerBookings() {
                           </div>
                         </td>
                         <td className="py-3 pr-4">
-                          {b.type === "FIRST_SESSION" ? "First" : "Residency"}
+                          {b.type === "BOOK_SESSIONS" ? "Sessions" : "Residency"}
                         </td>
                         <td className="py-3 pr-4">
                           <div className="text-clay-dark">{b.user?.name || "—"}</div>

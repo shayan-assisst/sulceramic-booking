@@ -8,8 +8,10 @@ export const env = {
   stripeSecret: process.env.STRIPE_SECRET_KEY ?? "",
   stripeWebhook: process.env.STRIPE_WEBHOOK_SECRET ?? "",
   stripePublishable: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
-  priceFirstSession: parseInt(process.env.PRICE_FIRST_SESSION ?? "5000", 10),
-  priceResidencyMonth: parseInt(process.env.PRICE_RESIDENCY_MONTH ?? "16000", 10),
+  // Per-session price for Book Sessions (deferred / billed every 4 sessions).
+  pricePerSession: parseInt(process.env.PRICE_PER_SESSION ?? "5000", 10),
+  // Per-session price for Residency (billed monthly upfront).
+  priceResidencySession: parseInt(process.env.PRICE_RESIDENCY_SESSION ?? "4000", 10),
   ownerCalendarId: process.env.OWNER_CALENDAR_ID ?? "primary",
   cronSecret: process.env.CRON_SECRET ?? "",
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",

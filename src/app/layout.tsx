@@ -5,7 +5,7 @@ import { ToasterProvider } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: "Sul Ceramic — Booking",
   description:
-    "Book a first session or join a residency at Sul Ceramic — a hand-built ceramics studio in the south of Portugal.",
+    "Book sessions or join a residency at Sul Ceramic — a hand-built ceramics studio in the south of Portugal.",
 };
 
 export default function RootLayout({

@@ -87,28 +87,84 @@ export function generateSlotsForRange(
   return out;
 }
 
-export function generateResidencySessions(
-  weeklyDayOfWeek: number,
-  weeklyTime: string, // "HH:mm"
-  month: number, // 1-12
-  year: number
-) {
-  const [hh, mm] = parseHHMM(weeklyTime);
-  const sessions: { date: string; startTime: string; endTime: string }[] = [];
-  const d = new Date(year, month - 1, 1);
-  while (d.getMonth() === month - 1) {
-    if (d.getDay() === weeklyDayOfWeek) {
-      const start = new Date(d);
+// Generate N future sessions matching a recurring pattern (used by Book Sessions).
+export function generateRecurringSessions(
+  daysOfWeek: number[],
+  time: string,
+  count: number,
+  from: Date = new Date()
+): SlotProposal[] {
+  if (daysOfWeek.length === 0 || count <= 0) return [];
+  const [hh, mm] = parseHHMM(time);
+  const out: SlotProposal[] = [];
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+  // Move cursor forward to the next matching day (allow today if time is later).
+  let safety = 0;
+  while (out.length < count && safety < 366 * 2) {
+    safety += 1;
+    if (daysOfWeek.includes(cursor.getDay())) {
+      const start = new Date(cursor);
       start.setHours(hh, mm, 0, 0);
-      const end = new Date(start);
-      end.setMinutes(end.getMinutes() + SLOT_MINUTES);
-      sessions.push({
-        date: isoDate(start),
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-      });
+      if (start.getTime() > Date.now()) {
+        const end = new Date(start.getTime() + SLOT_MINUTES * 60_000);
+        out.push({ date: isoDate(start), start, end });
+      }
     }
-    d.setDate(d.getDate() + 1);
+    cursor.setDate(cursor.getDate() + 1);
   }
-  return sessions.slice(0, 4);
+  return out;
+}
+
+// Generate residency sessions for the first month from a multi-day pattern.
+export function generateResidencySessionsFromPattern(opts: {
+  daysOfWeek: number[];
+  time: string; // "HH:mm"
+  sessionsPerWeek: number; // 1 or 2
+  startDate: Date;
+}) {
+  const { daysOfWeek, time, sessionsPerWeek, startDate } = opts;
+  if (daysOfWeek.length === 0) return [];
+  const [hh, mm] = parseHHMM(time);
+
+  // Iterate from startDate for ~28 days, picking up to sessionsPerWeek per ISO week.
+  const sessions: { date: string; startTime: string; endTime: string }[] = [];
+  const cursor = new Date(startDate);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(cursor);
+  end.setDate(end.getDate() + 28);
+
+  // Group by week: track count per week-of-year key.
+  const perWeek = new Map<string, number>();
+  function weekKey(d: Date) {
+    // Use yyyy-Www where W = floor(((day - firstDow + 7)/7))
+    const tmp = new Date(d);
+    tmp.setHours(0, 0, 0, 0);
+    const yearStart = new Date(tmp.getFullYear(), 0, 1);
+    const diff = Math.floor(
+      (tmp.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000)
+    );
+    const w = Math.floor((diff + yearStart.getDay()) / 7);
+    return `${tmp.getFullYear()}-W${w}`;
+  }
+
+  while (cursor < end) {
+    if (daysOfWeek.includes(cursor.getDay())) {
+      const key = weekKey(cursor);
+      const used = perWeek.get(key) ?? 0;
+      if (used < sessionsPerWeek) {
+        const s = new Date(cursor);
+        s.setHours(hh, mm, 0, 0);
+        const e = new Date(s.getTime() + SLOT_MINUTES * 60_000);
+        sessions.push({
+          date: isoDate(s),
+          startTime: s.toISOString(),
+          endTime: e.toISOString(),
+        });
+        perWeek.set(key, used + 1);
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return sessions;
 }

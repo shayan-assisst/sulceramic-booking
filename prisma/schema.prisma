@@ -9,27 +9,29 @@ datasource db {
 
 // Note: SQLite does not support Prisma enums.
 // Role values: "USER" | "OWNER"
-// BookingType values: "FIRST_SESSION" | "RESIDENCY"
+// BookingType values: "BOOK_SESSIONS" | "RESIDENCY"
 // BookingStatus values: "PENDING" | "CONFIRMED" | "CANCELLED"
 
 model User {
-  id                  String    @id @default(cuid())
-  name                String?
-  email               String    @unique
-  emailVerified       DateTime?
-  image               String?
-  role                String    @default("USER")
-  googleAccessToken   String?
-  googleRefreshToken  String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String    @unique
+  emailVerified          DateTime?
+  image                  String?
+  role                   String    @default("USER")
+  googleAccessToken      String?
+  googleRefreshToken     String?
+  confirmedSessionCount  Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  accounts            Account[]
-  sessions            Session[]
-  bookings            Booking[]
-  sentMessages        Message[] @relation("SentMessages")
-  receivedMessages    Message[] @relation("ReceivedMessages")
-  notifications       Notification[]
+  accounts               Account[]
+  sessions               Session[]
+  bookings               Booking[]
+  sentMessages           Message[] @relation("SentMessages")
+  receivedMessages       Message[] @relation("ReceivedMessages")
+  notifications          Notification[]
+  paymentReminders       PaymentReminder[]
 }
 
 model Account {
@@ -78,33 +80,47 @@ model AvailabilitySlot {
 }
 
 model Booking {
-  id              String    @id @default(cuid())
-  userId          String
-  slotId          String?
-  type            String    // FIRST_SESSION | RESIDENCY
-  status          String    @default("PENDING") // PENDING | CONFIRMED | CANCELLED
-  startTime       DateTime
-  endTime         DateTime
-  notes           String?
-  stripePaymentId String?
-  amountPaid      Int?      // cents
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  userId           String
+  slotId           String?
+  type             String    // BOOK_SESSIONS | RESIDENCY
+  status           String    @default("PENDING") // PENDING | CONFIRMED | CANCELLED
+  startTime        DateTime
+  endTime          DateTime
+  notes            String?
+  recurringPattern String?   // JSON: { daysOfWeek: number[], time: "HH:mm", sessionCount: number }
+  sessionCount     Int       @default(1)
+  stripePaymentId  String?
+  amountPaid       Int?      // cents
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  residency       ResidencyBooking?
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  residency        ResidencyBooking?
 }
 
 model ResidencyBooking {
-  id              String   @id @default(cuid())
-  bookingId       String   @unique
-  weeklyDayOfWeek Int      // 0-6
-  weeklyTime      String   // "HH:mm"
-  sessions        String   // JSON: [{ date, startTime, endTime, cancelled, rescheduled }]
-  month           Int
-  year            Int
+  id               String   @id @default(cuid())
+  bookingId        String   @unique
+  daysOfWeek       String   // JSON int array, e.g. [1,3] for Mon+Wed
+  sessionsPerMonth Int
+  startDate        DateTime
+  sessions         String   // JSON: [{ date, startTime, endTime, cancelled, rescheduled }]
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model PaymentReminder {
+  id              String    @id @default(cuid())
+  userId          String
+  sessionFrom     Int
+  sessionTo       Int
+  amount          Int
+  stripePaymentId String?
+  paid            Boolean   @default(false)
+  sentAt          DateTime  @default(now())
+  paidAt          DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Message {

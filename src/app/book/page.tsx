@@ -53,8 +53,8 @@ export default async function BookPage() {
             isDemo={env.isDemo}
             isAuthenticated={!!user}
             pricing={{
-              firstSession: env.priceFirstSession,
-              residencyMonth: env.priceResidencyMonth,
+              perSession: env.pricePerSession,
+              residencySession: env.priceResidencySession,
             }}
           />
         </Suspense>

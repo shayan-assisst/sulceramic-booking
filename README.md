@@ -1,9 +1,9 @@
 # Sul Ceramic — Booking
 
 A booking and scheduling web app for **Sul Ceramic**, a ceramics studio in the south of Portugal.
-Single-session bookings, monthly residencies, owner availability calendar, Stripe payments,
-Google Calendar sync, Resend email reminders, and a built-in messaging thread between studio and
-client.
+Flexible session bookings (with deferred payment after every 4 sessions), monthly residencies
+with upfront payment, owner availability calendar, Stripe payments, Google Calendar sync,
+Resend email reminders, and a built-in messaging thread between studio and client.
 
 > Live demo (read-only, mock data): https://shayan-assisst.github.io/sulceramic-booking
 
@@ -23,11 +23,13 @@ client.
 ### For clients
 - One-tap Google sign-in
 - Two formats:
-  - **First Session** — single 2h intro at the wheel
-  - **Residency** — 4 sessions/month at a recurring weekly time, reschedule individual
-    sessions up to 24h before
-- Stripe-powered checkout
+  - **Book Sessions** — pick one or more individual slots, or set a recurring weekly schedule
+    (e.g. every Monday at 18:00). No upfront payment — billed every 4 confirmed sessions.
+  - **Residency** — pick the days you want to come, choose 1 or 2 sessions per week, set a
+    start date. The first month is generated and paid upfront.
+- Stripe-powered checkout (residency upfront, sessions deferred via reminder)
 - Booking detail page with cancellation (24h cutoff)
+- Payment reminder banner on the dashboard with one-click "Pay now"
 - Direct messaging with the studio
 
 ### For Miguel (owner)
@@ -88,10 +90,10 @@ record. The Calendar sync uses *his* tokens to write events to his calendar (`OW
    STRIPE_SECRET_KEY=sk_test_...
    STRIPE_PUBLISHABLE_KEY=pk_test_...
    ```
-4. Set prices (in cents) — these default to 50 EUR / 160 EUR:
+4. Set prices (in cents) — defaults to 50 EUR/session for ad-hoc, 40 EUR/session for residency:
    ```
-   PRICE_FIRST_SESSION=5000
-   PRICE_RESIDENCY_MONTH=16000
+   PRICE_PER_SESSION=5000          # billed every 4 sessions for "Book Sessions"
+   PRICE_RESIDENCY_SESSION=4000    # billed upfront monthly for residency
    ```
 5. Set up the webhook:
    - **Local dev**: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
@@ -175,6 +177,53 @@ Add the webhook URL in your Stripe dashboard and copy the signing secret to `STR
 ### Cron in production
 Use either a platform-native cron, GitHub Actions on a schedule, or a managed cron service to hit
 `/api/cron/reminders`. Auth is the `CRON_SECRET` Bearer token.
+
+---
+
+## Booking Model
+
+Two formats sit side-by-side and use different payment models:
+
+### Book Sessions — deferred payment
+
+- The user picks one or more sessions, either by tapping individual slots in a multi-select
+  calendar, or by defining a recurring pattern (e.g. *every Monday at 18:00, 4 times*).
+- All picked sessions are created as `BOOK_SESSIONS` bookings with status `CONFIRMED` and
+  **no upfront payment** — `amountPaid` is null.
+- The user record carries a `confirmedSessionCount` counter that increments each time a session
+  is confirmed.
+- After every 4th confirmed session (cumulative), the daily cron at `/api/cron/reminders`
+  creates a `PaymentReminder` row covering the block (`sessionFrom..sessionTo`) for
+  `4 × PRICE_PER_SESSION` and emails both the user and the owner.
+- The user dashboard shows a **payment reminder banner** with a *Pay now* button that opens
+  Stripe Checkout. On `checkout.session.completed`, the webhook flips the reminder to `paid`.
+
+### Residency — upfront payment
+
+- The user picks day(s) of week (Mon–Sun toggle), 1 or 2 sessions per week, a start date, and
+  a time. The system generates the individual session dates for the first month from that
+  pattern.
+- Total price = `sessions_in_month × PRICE_RESIDENCY_SESSION`.
+- The booking is created `PENDING`. Stripe Checkout collects the first month upfront. On
+  `checkout.session.completed`, the webhook flips the booking to `CONFIRMED` and writes one
+  Google Calendar event per generated session.
+
+The `PaymentReminder` model:
+
+```prisma
+model PaymentReminder {
+  id              String    @id @default(cuid())
+  userId          String
+  sessionFrom     Int
+  sessionTo       Int
+  amount          Int       // cents
+  stripePaymentId String?
+  paid            Boolean   @default(false)
+  sentAt          DateTime  @default(now())
+  paidAt          DateTime?
+  user            User      @relation(...)
+}
+```
 
 ---
 

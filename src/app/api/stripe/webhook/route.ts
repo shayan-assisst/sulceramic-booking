@@ -25,6 +25,19 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const cs: any = event.data.object;
+    const kind = cs.metadata?.kind as string | undefined;
+
+    if (kind === "PAYMENT_REMINDER") {
+      const reminderId = cs.metadata?.reminderId as string | undefined;
+      if (!reminderId) return NextResponse.json({ ok: true });
+      await prisma.paymentReminder.update({
+        where: { id: reminderId },
+        data: { paid: true, paidAt: new Date() },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Default: residency booking flow.
     const bookingId = cs.metadata?.bookingId as string | undefined;
     if (!bookingId) return NextResponse.json({ ok: true });
 
@@ -34,7 +47,6 @@ export async function POST(req: NextRequest) {
       include: { user: true, residency: true },
     });
 
-    // Email confirmations
     try {
       await sendBookingConfirmed({
         userEmail: booking.user.email,
@@ -47,10 +59,9 @@ export async function POST(req: NextRequest) {
       console.error("email confirm failed", e);
     }
 
-    // Calendar event(s)
     try {
       const summaryBase = `Sul Ceramic — ${
-        booking.type === "FIRST_SESSION" ? "First Session" : "Residency"
+        booking.type === "BOOK_SESSIONS" ? "Book Sessions" : "Residency"
       } [${booking.user.name || booking.user.email}]`;
       if (booking.residency) {
         const sessions = JSON.parse(booking.residency.sessions);

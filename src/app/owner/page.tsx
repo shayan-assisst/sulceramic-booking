@@ -106,7 +106,7 @@ export default async function OwnerDashboard() {
                       {b.userName || b.user?.name || "Guest"}
                     </div>
                     <div className="text-sm text-clay-mid">
-                      {b.type === "FIRST_SESSION" ? "First Session" : "Residency"} ·{" "}
+                      {b.type === "BOOK_SESSIONS" ? "Book Sessions" : "Residency"} ·{" "}
                       {formatTime(b.startTime)}–{formatTime(b.endTime)}
                     </div>
                   </div>

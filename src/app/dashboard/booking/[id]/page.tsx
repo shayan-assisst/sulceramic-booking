@@ -42,6 +42,12 @@ export default async function BookingDetail({ params }: { params: { id: string }
       : booking.residency.sessions
     : null;
 
+  const residencyDays: number[] | null = booking.residency
+    ? typeof booking.residency.daysOfWeek === "string"
+      ? JSON.parse(booking.residency.daysOfWeek)
+      : booking.residency.daysOfWeek
+    : null;
+
   return (
     <PageShell>
       <div className="container max-w-3xl py-12 space-y-6">
@@ -57,7 +63,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
             <div className="flex items-start justify-between">
               <div>
                 <CardDescription>
-                  {booking.type === "FIRST_SESSION" ? "First Session" : "Residency"}
+                  {booking.type === "BOOK_SESSIONS" ? "Book Sessions" : "Residency"}
                 </CardDescription>
                 <CardTitle className="text-3xl">{formatDate(booking.startTime)}</CardTitle>
                 <p className="mt-1 text-clay-mid">
@@ -78,11 +84,15 @@ export default async function BookingDetail({ params }: { params: { id: string }
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {booking.amountPaid && (
+            {booking.amountPaid ? (
               <div className="text-sm text-clay-mid">
                 Paid: <span className="text-clay-dark">{formatPrice(booking.amountPaid)}</span>
               </div>
-            )}
+            ) : booking.type === "BOOK_SESSIONS" ? (
+              <div className="text-sm text-clay-mid">
+                Payment is collected after every 4 confirmed sessions.
+              </div>
+            ) : null}
             {booking.notes && (
               <div>
                 <div className="text-xs uppercase tracking-wider text-clay-mid mb-1">
@@ -100,9 +110,10 @@ export default async function BookingDetail({ params }: { params: { id: string }
             <CardHeader>
               <CardTitle>Residency schedule</CardTitle>
               <CardDescription>
-                Every {DAY_NAMES[booking.residency.weeklyDayOfWeek]} at{" "}
-                {booking.residency.weeklyTime}. You can reschedule individual sessions up to 24h
-                in advance.
+                {residencyDays && residencyDays.length > 0
+                  ? `Every ${residencyDays.map((d) => DAY_NAMES[d]).join(", ")}.`
+                  : "Recurring sessions."}{" "}
+                You can reschedule individual sessions up to 24h in advance.
               </CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-terracotta-100">
