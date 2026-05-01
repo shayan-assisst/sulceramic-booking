@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f5f0e8;
+  --fg: #3d2b1f;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.serif {
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+}
+
+/* Subtle paper-grain backdrop */
+.paper {
+  background-color: #f5f0e8;
+  background-image:
+    radial-gradient(rgba(193, 122, 74, 0.05) 1px, transparent 1px),
+    radial-gradient(rgba(61, 43, 31, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px, 32px 32px;
+  background-position: 0 0, 12px 16px;
+}
+
+/* Hide scrollbars but allow scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
