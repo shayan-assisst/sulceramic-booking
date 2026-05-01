@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002Fdashboard\u002Fbooking\u002F[id]","\u002Fowner\u002Fmessages\u002F[userId]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()
