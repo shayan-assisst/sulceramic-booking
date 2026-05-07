@@ -5,7 +5,7 @@ Flexible session bookings (with deferred payment after every 4 sessions), monthl
 with upfront payment, owner availability calendar, Stripe payments, Google Calendar sync,
 Resend email reminders, and a built-in messaging thread between studio and client.
 
-> Live demo (read-only, mock data): https://shayan-assisst.github.io/sulceramic-booking
+> Live demo (read-only, mock data): https://ibeezhan.github.io/sulceramic-booking
 
 ## Stack
 
@@ -53,7 +53,7 @@ Resend email reminders, and a built-in messaging thread between studio and clien
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/shayan-assisst/sulceramic-booking.git
+git clone https://github.com/ibeezhan/sulceramic-booking.git
 cd sulceramic-booking
 npm install
 cp .env.example .env

@@ -29,7 +29,7 @@ jobs:
         env:
           NEXT_PUBLIC_DEMO_MODE: "true"
           NEXTAUTH_SECRET: "demo-secret-not-used"
-          NEXTAUTH_URL: "https://shayan-assisst.github.io/sulceramic-booking"
+          NEXTAUTH_URL: "https://ibeezhan.github.io/sulceramic-booking"
           GOOGLE_CLIENT_ID: "demo"
           GOOGLE_CLIENT_SECRET: "demo"
           OWNER_EMAIL: "miguel@sulceramic.com"
